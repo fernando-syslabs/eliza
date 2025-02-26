@@ -1,41 +1,48 @@
 services:
-    tee:
+    qdrant:
+        image: qdrant/qdrant:v1.12.5
+        restart: unless-stopped
+        volumes:
+            - ./data/qdrant:/qdrant/storage:z
+        expose:
+            - 6333
+    client:
+        image: superdapp/eliza:latest
+        restart: unless-stopped
+        depends_on:
+            - server
+        stdin_open: true
+        tty: true
+        command: ["pnpm", "start:client", "--host"]
+        env_file:
+          - .env
+        expose:
+          - 5173
+    server:
+        image: superdapp/eliza:latest
+        restart: unless-stopped
+        mem_limit: 8g
+        mem_reservation: 2g
+        depends_on:
+            - qdrant
+        stdin_open: true
+        tty: true
         build:
             context: .
             dockerfile: Dockerfile
-        stdin_open: true
-        tty: true
+#        deploy:
+#          resources:
+#            reservations:
+#              devices:
+#                - driver: nvidia
+#                  count: 1
+#                  capabilities: [gpu]
         volumes:
-            - /var/run/tappd.sock:/var/run/tappd.sock
-            - tee:/app/packages/client-twitter/src/tweetcache
-            - tee:/app/db.sqlite
-        environment:
-            - OPENAI_API_KEY=
-            - REDPILL_API_KEY=
-            - ELEVENLABS_XI_API_KEY=
-            - ELEVENLABS_MODEL_ID=eleven_multilingual_v2
-            - ELEVENLABS_VOICE_ID=21m00Tcm4TlvDq8ikWAM
-            - ELEVENLABS_VOICE_STABILITY=0.5
-            - ELEVENLABS_VOICE_SIMILARITY_BOOST=0.9
-            - ELEVENLABS_VOICE_STYLE=0.66
-            - ELEVENLABS_VOICE_USE_SPEAKER_BOOST=false
-            - ELEVENLABS_OPTIMIZE_STREAMING_LATENCY=4
-            - ELEVENLABS_OUTPUT_FORMAT=pcm_16000
-            - TWITTER_DRY_RUN=false
-            - TWITTER_USERNAME=
-            - TWITTER_PASSWORD=
-            - TWITTER_EMAIL=
-            - X_SERVER_URL=https://api.red-pill.ai/v1
-            - BIRDEYE_API_KEY=
-            - SOL_ADDRESS=So11111111111111111111111111111111111111112
-            - SLIPPAGE=1
-            - RPC_URL=https://api.mainnet-beta.solana.com
-            - HELIUS_API_KEY=
-            - SERVER_PORT=3000
-            - WALLET_SECRET_SALT=secret_salt
-        ports:
-            - "3000:3000"
-        restart: always
+            - ./data/tweetcache:/app/packages/client-twitter/src/tweetcache
+            - ./data/agent:/app/agent/data/
+        command: ["pnpm", "start", "--character=characters/aida.character.json"]
+        env_file:
+            - .env
+        expose:
+            - 3000
 
-volumes:
-    tee:
